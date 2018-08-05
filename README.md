@@ -68,8 +68,10 @@ to your window.onload function.
 - **geojsonServiceAddress:** Address of your geojson service. 
   - Ajax request sends 3 parameter to your service.
     - **search** query parameter
-    - **offset** starting index (If pagingActive parameter is true)
     - **limit** maximum result count
+    - **offset** starting index (If pagingActive parameter is true)
+    - **sw** South West latitude longitude pair (If geolocationActive parameter is true) i.e *40,3.15*
+    - **ne** North East latitude longitude pair (If geolocationActive parameter is true) i.e *40,3.15*
 - **placeholderMessage:** Placeholder message for search box.  
 - **searchButtonTitle:** Title of search button.  
 - **clearButtonTitle:** Title of Clear button.  
@@ -80,9 +82,9 @@ to your window.onload function.
 - **drawColor:** Color for Linestring and polygon geometries.    
 - **pointGeometryZoomLevel:** Zoom level for point geometries. -1 means use leaflet default.
 - **pagingActive:** If your geojson service supports paging (accepts offset parameter) change this to true.
-- **pagingActive:** If your geojson service supports paging (accepts offset parameter) change this to true.
-- **searchLayerType:** Define if you want to show multiple GEOJson objects or just one at the same time.
+- **searchLayerType:** Define if you want to show multiple geojson objects or just one at the same time.
     Set this option to *'simple'* or *'multiple'*.
+- **geolocationActive:** If your geojson service supports geolocation based search change this to true.
 
 #Paging Mode
 If your geojson service supports paging (accepts offset parameter), you can activate paging with pagingActive parameter in options. 

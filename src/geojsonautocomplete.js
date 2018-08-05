@@ -17,6 +17,7 @@
         drawColor: "blue",
         pointGeometryZoomLevel: -1, //Set zoom level for point geometries -1 means use leaflet default.
         pagingActive: true,
+        geolocationActive: true,
         searchLayerType: 'simple',
         onActiveResultChange: function(map, feature, activeResult) {
             if (options.searchLayerType === 'multiple') {
@@ -27,6 +28,8 @@
             }
         }
     };
+
+    var RELEVANT_GPS_PRECISION_DIVISOR = 1000000;
 
     var activeResult = -1;
     var resultCount = 0;
@@ -164,6 +167,15 @@
         
         if (options.pagingActive) {
             data.offset = offset;
+        }
+
+        if (options.geolocationActive) {
+            var bounds = map.getBounds();
+            var sw = bounds.getSouthWest();
+            var ne = bounds.getNorthEast();
+
+            data.sw = limitGPSPrecision(sw.lat).toString() + "," + limitGPSPrecision(sw.lng).toString();
+            data.ne = limitGPSPrecision(ne.lat).toString() + "," + limitGPSPrecision(ne.lng).toString();
         }
         
         $.ajax({
@@ -532,6 +544,11 @@
         getValuesAsGeoJson();
         collapseOnBlur = false;
         activeResult = -1;
+    }
+    
+    function limitGPSPrecision(value)
+    {
+        return Math.round(value * RELEVANT_GPS_PRECISION_DIVISOR) / RELEVANT_GPS_PRECISION_DIVISOR;
     }
 
 })(jQuery);

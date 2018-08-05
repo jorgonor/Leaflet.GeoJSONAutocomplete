@@ -40,17 +40,22 @@
                 }).addTo(map);
 
                 var options = {
-                    geojsonServiceAddress: "./testgeojsondata.json"
+                    geojsonServiceAddress: "./testgeojsondata.json",
+                    pagingActive: true,
+                    onActiveResultChange: function(map, feature, activeResultIndex) {
+                       if (feature.type == "Feature" && feature.geometry.type == "Point") {
+                           map.setView([feature.geometry.coordinates[1], feature.geometry.coordinates[0]]);
+                       }
+                    }
                 };
-                $("#searchContainer").GeoJsonAutocomplete(options);
+                $("#searchContainer").GeoJsonAutocomplete(map, options);
             };
         </script>
-
     </head>
     <body>
         <div id="map" class="map"></div>
 
-        <div id='searchContainer' style="position: fixed;">
+        <div id="searchContainer" style="position: fixed;">
         </div>
     </body>
 </html>

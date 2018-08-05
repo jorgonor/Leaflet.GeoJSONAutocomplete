@@ -16,7 +16,16 @@
         notFoundHint: "Make sure your search criteria is correct and try again.",
         drawColor: "blue",
         pointGeometryZoomLevel: -1, //Set zoom level for point geometries -1 means use leaflet default.
-        pagingActive: true
+        pagingActive: true,
+        searchLayerType: 'simple',
+        onActiveResultChange: function(map, feature, activeResult) {
+            if (options.searchLayerType === 'multiple') {
+                focusGeoJson(activeResult);
+            }
+            else {
+                drawGeoJson(activeResult);
+            }
+        }
     };
 
     var activeResult = -1;
@@ -24,86 +33,93 @@
     var lastSearch = "";
     var searchLayer;
     var focusLayer;
-    var searchLayerType; // 0 --> One geometry, 1--> Multiple
     var features = [];
     var featureCollection = [];
     var offset = 0;
     var collapseOnBlur = true;
+    var map, $element, $searchBox, $searchButton, $clearButton, $resultsDiv;
 
-    $.fn.GeoJsonAutocomplete = function (userDefinedOptions) {
-
-        var keys = Object.keys(userDefinedOptions);
+    $.fn.GeoJsonAutocomplete = function (mapToWork, userDefinedOptions) {
+        var keys;
+        map = mapToWork;
+        keys = Object.keys(userDefinedOptions);
 
         for (var i = 0; i < keys.length; i++) {
             options[keys[i]] = userDefinedOptions[keys[i]];
         }
 
+        $element = $(this);
 
-        $(this).each(function () {
-            var element = $(this);
-            element.addClass("searchContainer");
-            element.append('<input id="searchBox" class="searchBox" placeholder="' + options.placeholderMessage + '"/>');
-            element.append('<input id="searchButton" class="searchButton" type="submit" value="" title="' + options.searchButtonTitle + '"/>');
-            element.append('<span class="divider"></span>');
-            element.append('<input id="clearButton" class="clearButton" type="submit"  value="" title="' + options.clearButtonTitle + '">');
+        if ($element.length > 1) {
+            throw new Error("Leaflet.GeoJSONAutocomplete doesn't support multiple elements.");
+        }
 
-            $("#searchBox")[0].value = "";
-            $("#searchBox").delayKeyup(function (event) {
-                switch (event.keyCode) {
-                    case 13: // enter
-                        searchButtonClick();
-                        break;
-                    case 38: // up arrow
-                        prevResult();
-                        break;
-                    case 40: // down arrow
-                        nextResult();
-                        break;
-                    case 37: //left arrow, Do Nothing
-                    case 39: //right arrow, Do Nothing
-                        break;
-                    default:
-                        if ($("#searchBox")[0].value.length > 0) {
-                            offset = 0;
-                            getValuesAsGeoJson(false);
-                        }
-                        else {
-                            clearButtonClick();
-                        }
-                        break;
-                }
-            }, 300);
+        $element.addClass("searchContainer");
+        $element.append('<input class="searchBox" placeholder="' + options.placeholderMessage + '"/>');
+        $element.append('<input class="searchButton" type="submit" value="" title="' + options.searchButtonTitle + '"/>');
+        $element.append('<span class="divider"></span>');
+        $element.append('<input class="clearButton" type="submit"  value="" title="' + options.clearButtonTitle + '">');
 
-            $("#searchBox").focus(function () {
-                if ($("#resultsDiv")[0] !== undefined) {
-                    $("#resultsDiv")[0].style.visibility = "visible";
-                }
-            });
+        $searchBox = $element.find('.searchBox');
+        $searchButton = $element.find('.searchButton');
+        $clearButton = $element.find('.clearButton');
 
-            $("#searchBox").blur(function () {
-                if ($("#resultsDiv")[0] !== undefined) {
-                    if (collapseOnBlur) {
-                        $("#resultsDiv")[0].style.visibility = "collapse";
+        $searchBox.val('');
+        $searchBox.delayKeyup(function (event) {
+            switch (event.keyCode) {
+                case 13: // enter
+                    getValuesAsGeoJson();
+                    break;
+                case 38: // up arrow
+                    prevResult();
+                    break;
+                case 40: // down arrow
+                    nextResult();
+                    break;
+                case 37: //left arrow, Do Nothing
+                case 39: //right arrow, Do Nothing
+                    break;
+                default:
+                    if ($searchBox.val().length > 0) {
+                        offset = 0;
+                        getValuesAsGeoJson();
                     }
                     else {
-                        collapseOnBlur = true;
-
-                        window.setTimeout(function ()
-                        {
-                            $("#searchBox").focus();
-                        }, 0);
+                        clearButtonClick();
                     }
+                    break;
+            }
+        }, 300);
+
+        $searchBox.focus(function () {
+            if ($resultsDiv) {
+                $resultsDiv.css('visibility', 'visible');
+            }
+        });
+
+        $searchBox.blur(function () {
+            if ($resultsDiv) {
+                if (collapseOnBlur) {
+                    $resultsDiv.css('visibility', "collapse");
                 }
+                else {
+                    collapseOnBlur = true;
 
-            });
+                    setTimeout(function ()
+                    {
+                        $searchBox.focus();
+                    }, 0);
+                }
+            }
 
-            $("#searchButton").click(function () {
-                searchButtonClick();
-            });
+        });
 
-            $("#clearButton").click(function () {
-                clearButtonClick();
-            });
+        $searchButton.click(function () {
+            getValuesAsGeoJson();
+        });
+
+        $clearButton.click(function () {
+            clearButtonClick();
         });
     };
 
@@ -124,16 +140,18 @@
         return $(this);
     };
 
-    function getValuesAsGeoJson(withPaging) {
-
+    function getValuesAsGeoJson()
+    {
+        var $searchBox = $element.find('.searchBox');
         activeResult = -1;
         features = [];
         featureCollection = [];
         var limitToSend = options.limit;
-        if (withPaging) {
+        if (options.pagingActive) {
             limitToSend++;
         }
-        lastSearch = $("#searchBox")[0].value;
+
+        lastSearch = $searchBox.val();
 
         if (lastSearch === "") {
             return;
@@ -144,7 +162,7 @@
             limit: limitToSend
         };
         
-        if(options.pagingActive){
+        if (options.pagingActive) {
             data.offset = offset;
         }
         
@@ -154,7 +172,7 @@
             data: data,
             dataType: 'json',
             success: function (json) {
-
+                
                 if (json.type === "Feature") {
                     resultCount = 1;
                     features[0] = json;
@@ -164,37 +182,42 @@
                     resultCount = json.features.length;
                     features = json.features;
 
-                    if (limitToSend === resultCount)
+                    if (limitToSend === resultCount) {
                         featureCollection = json.features.slice(0, json.features.length - 1);
-                    else
+                    }
+                    else {
                         featureCollection = json.features;
+                    }
                 }
-                createDropDown(withPaging);
-                searchLayerType = (withPaging ? 1 : 0);
+
+                createDropDown();
             },
             error: function () {
                 processNoRecordsFoundOrError();
             }
         });
-
     }
 
-    function createDropDown(withPaging) {
-        var parent = $("#searchBox").parent();
+    function createDropDown()
+    {
+        var $searchBox = $element.find('.searchBox'), $resultList;
 
-        $("#resultsDiv").remove();
-        parent.append("<div id='resultsDiv' class='result'><ul id='resultList' class='list'></ul><div>");
+        if ($resultsDiv) { $resultsDiv.remove() };
+        $element.append("<div class='result'><ul class='list'></ul><div>");
 
-        $("#resultsDiv")[0].style.position = $("#searchBox")[0].style.position;
-        $("#resultsDiv")[0].style.left = (parseInt($("#searchBox")[0].style.left) - 10) + "px";
-        $("#resultsDiv")[0].style.bottom = $("#searchBox")[0].style.bottom;
-        $("#resultsDiv")[0].style.right = $("#searchBox")[0].style.right;
-        $("#resultsDiv")[0].style.top = (parseInt($("#searchBox")[0].style.top) + 25) + "px";
-        $("#resultsDiv")[0].style.zIndex = $("#searchBox")[0].style.zIndex;
+        $resultsDiv = $element.find('.result');
+        $resultList = $resultsDiv.find('.list');
+
+        $resultsDiv.css('position', $searchBox.css('position'));
+        $resultsDiv.css('left', (parseInt($searchBox.css('left')) - 10) + "px");
+        $resultsDiv.css('bottom', $searchBox.css('bottom'));
+        $resultsDiv.css('right', $searchBox.css('right'));
+        $resultsDiv.css('top', (parseInt($searchBox.css('top')) + 25) + "px");
+        $resultsDiv.css('zIndex', $searchBox.css('zIndex'));
 
         var loopCount = features.length;
         var hasMorePages = false;
-        if (withPaging && features.length === options.limit + 1) { //Has more pages
+        if (options.pagingActive && features.length === options.limit + 1) { //Has more pages
             loopCount--;
             hasMorePages = true;
             resultCount--;
@@ -202,26 +225,26 @@
 
         for (var i = 0; i < loopCount; i++) {
 
-            var html = "<li id='listElement" + i + "' class='listResult'>";
+            var html = "<li id=\"listElement" + i + "\" class='listResult'>";
             html += "<span id='listElementContent" + i + "' class='content'><img src='./image/" + features[i].properties.image + "' class='iconStyle' align='middle'>";
             html += "<font size='2' color='#333' class='title'>" + features[i].properties.title + "</font><font size='1' color='#8c8c8c'> " + features[i].properties.description + "<font></span></li>";
 
-            $("#resultList").append(html);
+            $resultList.append(html);
 
-            $("#listElement" + i).mouseenter(function () {
+            $resultList.find("#listElement" + i).mouseenter(function () {
                 listElementMouseEnter(this);
             });
 
-            $("#listElement" + i).mouseleave(function () {
+            $resultList.find("#listElement" + i).mouseleave(function () {
                 listElementMouseLeave(this);
             });
 
-            $("#listElement" + i).mousedown(function () {
+            $resultList.find("#listElement" + i).mousedown(function () {
                 listElementMouseDown(this);
             });
         }
 
-        if (withPaging) {
+        if (options.pagingActive) {
             var prevPic = "prev.png";
             var nextPic = "next.png";
             var prevDisabled = "";
@@ -238,18 +261,20 @@
             }
 
             var htmlPaging = "<div align='right' class='pagingDiv'>" + (offset + 1) + " - " + (offset + loopCount) + " " + options.foundRecordsMessage + " ";
-            htmlPaging += "<input id='pagingPrev' type='image' src='../dist/image/" + prevPic + "' width='16' height='16' class='pagingArrow' " + prevDisabled + ">";
-            htmlPaging += "<input id='pagingNext' type='image' src='../dist/image/" + nextPic + "' width='16' height='16' class='pagingArrow' " + nextDisabled + "></div>";
-            $("#resultsDiv").append(htmlPaging);
+            htmlPaging += "<input type='image' src='../dist/image/" + prevPic + "' width='16' height='16' class='pagingArrow pagingPrev' " + prevDisabled + ">";
+            htmlPaging += "<input type='image' src='../dist/image/" + nextPic + "' width='16' height='16' class='pagingArrow pagingNext' " + nextDisabled + "></div>";
+            $resultsDiv.append(htmlPaging);
 
-            $("#pagingPrev").mousedown(function () {
+            $resultsDiv.find(".pagingPrev").click(function () {
                 prevPaging();
             });
 
-            $("#pagingNext").mousedown(function () {
+            $resultsDiv.find(".pagingNext").click(function () {
                 nextPaging();
-            });
+            });  
+        }
 
+        if (options.searchLayerType === 'multiple') {
             drawGeoJsonList();
         }
     }
@@ -284,16 +309,9 @@
 
             activeResult = index;
             fillSearchBox();
-
-            if (searchLayerType === 0) {
-                drawGeoJson(activeResult);
-            }
-            else {
-                focusGeoJson(activeResult);
-            }
+            onActiveResultChange();
         }
     }
-
 
     function drawGeoJsonList() {
         if (searchLayer !== undefined) {
@@ -398,17 +416,14 @@
         });
 
         map.addLayer(focusLayer);
-
     }
-
-
 
     function fillSearchBox() {
         if (activeResult === -1) {
-            $("#searchBox")[0].value = lastSearch;
+            $searchBox.val(lastSearch);
         }
         else {
-            $("#searchBox")[0].value = features[activeResult].properties.title;
+            $searchBox.val(features[activeResult].properties.title);
         }
     }
 
@@ -430,14 +445,8 @@
             fillSearchBox();
 
             if (activeResult !== -1) {
-                if (searchLayerType === 0) {
-                    drawGeoJson(activeResult);
-                }
-                else {
-                    focusGeoJson(activeResult);
-                }
+                onActiveResultChange();
             }
-
         }
     }
 
@@ -462,23 +471,24 @@
             fillSearchBox();
 
             if (activeResult !== -1) {
-                if (searchLayerType === 0) {
-                    drawGeoJson(activeResult);
-                }
-                else {
-                    focusGeoJson(activeResult);
-                }
+                onActiveResultChange();
             }
         }
     }
 
-    function clearButtonClick() {
-        $("#searchBox")[0].value = "";
+    function onActiveResultChange()
+    {
+        options.onActiveResultChange(map, features[activeResult], activeResult);
+    }
+
+    function clearButtonClick()
+    {
+        $searchBox.val('');
         lastSearch = "";
         resultCount = 0;
         features = [];
         activeResult = -1;
-        $("#resultsDiv").remove();
+        $resultsDiv.remove();
         if (searchLayer !== undefined) {
             map.removeLayer(searchLayer);
             searchLayer = undefined;
@@ -489,39 +499,39 @@
         }
     }
 
-    function searchButtonClick() {
-        getValuesAsGeoJson(options.pagingActive);
-
-    }
-
-    function processNoRecordsFoundOrError() {
+    function processNoRecordsFoundOrError()
+    {
         resultCount = 0;
         features = [];
         activeResult = -1;
-        $("#resultsDiv").remove();
+
+        $resultsDiv.remove();
+        
         if (searchLayer !== undefined) {
             map.removeLayer(searchLayer);
             searchLayer = undefined;
         }
 
-        var parent = $("#searchBox").parent();
-        $("#resultsDiv").remove();
-        parent.append("<div id='resultsDiv' class='result'><i>" + lastSearch + " " + options.notFoundMessage + " <p><small>" + options.notFoundHint + "</small></i><div>");
+        $resultsDiv.remove();
+        $element.append("<div id='resultsDiv' class='result'><i>" + lastSearch + " " + options.notFoundMessage + " <p><small>" + options.notFoundHint + "</small></i><div>");
+        $resultsDiv = $element.find('.result');
     }
 
-    function prevPaging() {
-        $("#searchBox")[0].value = lastSearch;
+    function prevPaging()
+    {
+        $searchBox.val(lastSearch);
         offset = offset - options.limit;
-        getValuesAsGeoJson(true);
+        getValuesAsGeoJson();
         collapseOnBlur = false;
         activeResult = -1;
     }
 
     function nextPaging() {
-        $("#searchBox")[0].value = lastSearch;
+        $searchBox.val(lastSearch);
         offset = offset + options.limit;
-        getValuesAsGeoJson(true);
+        getValuesAsGeoJson();
         collapseOnBlur = false;
         activeResult = -1;
     }
+
 })(jQuery);

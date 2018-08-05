@@ -164,6 +164,42 @@
                 "description": "Description about Polygon Geometry 3",
                 "image": "polygon.png"
             }
+        },
+        {
+            "type": "Feature",
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [
+                            28.06,
+                            39.58
+                        ],
+                        [
+                            27.06,
+                            40.58
+                        ],
+                        [
+                            30.06,
+                            40.58
+                        ],
+                        [
+                            28.06,
+                            38.58
+                        ],
+                        [
+                            28.06,
+                            39.58
+                        ]
+                    ]
+                ]
+            },
+            "properties": {
+                "popupContent": "This polygon loves Karl MALONE",
+                "title": "Polygon Geometry 3",
+                "description": "Description about Polygon Geometry 3",
+                "image": "polygon.png"
+            }
         }
     ]
 }

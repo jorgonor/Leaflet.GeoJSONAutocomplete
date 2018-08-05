@@ -80,10 +80,13 @@ to your window.onload function.
 - **drawColor:** Color for Linestring and polygon geometries.    
 - **pointGeometryZoomLevel:** Zoom level for point geometries. -1 means use leaflet default.
 - **pagingActive:** If your geojson service supports paging (accepts offset parameter) change this to true.
+- **pagingActive:** If your geojson service supports paging (accepts offset parameter) change this to true.
+- **searchLayerType:** Define if you want to show multiple GEOJson objects or just one at the same time.
+    Set this option to *'simple'* or *'multiple'*.
 
 #Paging Mode
 If your geojson service supports paging (accepts offset parameter), you can activate paging with pagingActive parameter in options. 
-When you type any text and press Enter(or click Search Button), Autocomplete runs with paging mode. In paging mode Autocomplete draw all geometries on map in a page.
+When you type any text and press Enter(or click Search Button), Autocomplete runs with paging mode.
 
 #License
 
